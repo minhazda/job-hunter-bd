@@ -77,13 +77,18 @@ def _gemini_tailor(jd: str) -> str:
     body = {
         "system_instruction": {"parts": [{"text": _SYSTEM}]},
         "contents": [{"parts": [{"text": _prompt(jd)}]}],
-        "generationConfig": {"maxOutputTokens": 8192, "temperature": 0.3},
+        "generationConfig": {
+            "maxOutputTokens": 8192,
+            "temperature": 0.3,
+            "thinkingConfig": {"thinkingBudget": 0},  # no "thinking" parts in the reply
+        },
     }
     r = httpx.post(url, params={"key": GEMINI_API_KEY}, json=body, timeout=90)
     r.raise_for_status()
     data = r.json()
     parts = data["candidates"][0]["content"]["parts"]
-    txt = "".join(p.get("text", "") for p in parts).strip()
+    # ignore any thought parts; keep only real output text
+    txt = "".join(p.get("text", "") for p in parts if not p.get("thought")).strip()
     return _strip_fence(txt)
 
 
@@ -102,10 +107,20 @@ def _claude_tailor(jd: str) -> str:
 
 
 def _strip_fence(txt: str) -> str:
-    if txt.startswith("```"):
-        txt = txt.strip("`")
-        if txt.lower().startswith("latex"):
-            txt = txt[5:]
+    import re
+
+    txt = txt.strip()
+    if "```" in txt:
+        m = re.search(r"```(?:latex)?\s*(.*?)```", txt, re.DOTALL)
+        if m:
+            txt = m.group(1).strip()
+    # If the model added any prose around it, keep just the LaTeX document.
+    start = txt.find("\\documentclass")
+    if start > 0:
+        txt = txt[start:]
+    end = txt.rfind("\\end{document}")
+    if end != -1:
+        txt = txt[: end + len("\\end{document}")]
     return txt.strip()
 
 
