@@ -1,0 +1,105 @@
+from __future__ import annotations
+
+import functools
+import json
+
+import httpx
+
+from .config import ANTHROPIC_API_KEY, PROFILE, TAILOR_MODEL
+
+_FALLBACK_TEX = r"""\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2cm]{geometry}\usepackage{hyperref}\usepackage{enumitem}
+\setlength{\parindent}{0pt}\pagestyle{empty}
+\begin{document}
+{\Large\textbf{MD Minhazur Rahman}}\\
+Data Scientist / Machine Learning Engineer\\
+\href{mailto:minhazurrahman.ds@gmail.com}{minhazurrahman.ds@gmail.com} \textbar\
+\href{https://github.com/minhazda}{github.com/minhazda} \textbar\
+\href{https://www.linkedin.com/in/mohammadminhaz/}{linkedin.com/in/mohammadminhaz}
+\section*{Summary}
+MSc Data Science (Greenwich), 3+ years industry data/IT experience. Production ML on GCP Cloud Run.
+\section*{Selected Projects}
+\begin{itemize}[leftmargin=1.2em]
+  \item Demand forecasting MLOps (LightGBM, FastAPI, Terraform, Cloud Run) -- MAE -40.8\%.
+  \item Card-fraud detection (imbalanced) -- ROC-AUC 0.90, PR-AUC 0.49.
+  \item Real-data forecasting (UCI Online Retail II, DuckDB) -- +26.3\% MAE.
+  \item Privacy-preserving RAG agent (LangGraph, LLM-as-judge).
+\end{itemize}
+\end{document}
+"""
+
+
+@functools.lru_cache(maxsize=1)
+def base_tex() -> str:
+    url = PROFILE.get("base_cv_tex_url")
+    if url:
+        try:
+            r = httpx.get(url, timeout=20)
+            if r.status_code == 200 and r.text.lstrip().startswith("\\documentclass"):
+                return r.text
+        except Exception:  # noqa: BLE001
+            pass
+    return _FALLBACK_TEX
+
+
+def tailor(job: dict) -> dict:
+    jd = (
+        f"Title: {job.get('title')}\nCompany: {job.get('company')}\n"
+        f"Location: {job.get('location')}\nExperience: {job.get('experience')}\n"
+        f"Description:\n{job.get('description')}"
+    )
+    if ANTHROPIC_API_KEY:
+        try:
+            return {"latex": _llm_tailor(jd), "mode": "llm"}
+        except Exception as exc:  # noqa: BLE001 - fall back gracefully
+            return {"latex": _template_tailor(job), "mode": f"template (LLM failed: {exc})"}
+    return {"latex": _template_tailor(job), "mode": "template"}
+
+
+def _llm_tailor(jd: str) -> str:
+    from anthropic import Anthropic
+
+    client = Anthropic(api_key=ANTHROPIC_API_KEY)
+    system = (
+        "You tailor a candidate's LaTeX CV to one specific job. Return ONLY compilable LaTeX "
+        "(no commentary, no markdown fences). Rules: keep every real fact, link, and metric; "
+        "reorder and reword the Summary and Selected Projects to foreground what the job asks for; "
+        "keep it to at most two pages; do not invent experience."
+    )
+    msg = client.messages.create(
+        model=TAILOR_MODEL,
+        max_tokens=4000,
+        system=system,
+        messages=[{"role": "user", "content": f"BASE CV (LaTeX):\n{base_tex()}\n\nJOB:\n{jd}\n\nReturn the tailored LaTeX only."}],
+    )
+    txt = "".join(getattr(b, "text", "") for b in msg.content if getattr(b, "type", "") == "text").strip()
+    if txt.startswith("```"):
+        txt = txt.strip("`")
+        if txt.lower().startswith("latex"):
+            txt = txt[5:]
+    return txt.strip()
+
+
+def _template_tailor(job: dict) -> str:
+    tex = base_tex()
+    try:
+        matched = json.loads(job.get("matched") or "[]")
+    except Exception:  # noqa: BLE001
+        matched = []
+    focus = ", ".join(matched[:8]) or "production ML, Python, data analysis"
+    objective = (
+        f"\\section*{{Objective}}\n"
+        f"Applying for \\textbf{{{_tex_escape(job.get('title',''))}}} at "
+        f"{_tex_escape(job.get('company',''))}. Most relevant strengths for this role: {_tex_escape(focus)}. "
+        f"Full project links and metrics below.\n\n"
+    )
+    for marker in ("\\section{Summary}", "\\section*{Summary}"):
+        if marker in tex:
+            return tex.replace(marker, objective + marker, 1)
+    return tex.replace("\\begin{document}", "\\begin{document}\n" + objective, 1)
+
+
+def _tex_escape(s: str) -> str:
+    for a, b in [("&", "\\&"), ("%", "\\%"), ("$", "\\$"), ("#", "\\#"), ("_", "\\_")]:
+        s = s.replace(a, b)
+    return s

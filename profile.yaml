@@ -1,0 +1,90 @@
+# Your profile drives match scoring, "why apply", and CV tailoring.
+name: MD Minhazur Rahman
+title: Data Scientist / Machine Learning Engineer
+seniority_years: 3
+
+# Roles you target (used for title matching + overqualified detection).
+target_roles:
+  - data scientist
+  - machine learning engineer
+  - ml engineer
+  - ai engineer
+  - mlops engineer
+  - data analyst
+  - data engineer
+  - python developer
+  - research assistant
+  - research engineer
+
+# Skills/keywords used for match scoring (lowercase).
+skills:
+  - python
+  - sql
+  - machine learning
+  - deep learning
+  - lightgbm
+  - xgboost
+  - scikit-learn
+  - pytorch
+  - tensorflow
+  - time series
+  - forecasting
+  - classification
+  - nlp
+  - llm
+  - rag
+  - langgraph
+  - computer vision
+  - fastapi
+  - flask
+  - docker
+  - terraform
+  - gcp
+  - aws
+  - azure
+  - cloud
+  - mlflow
+  - prometheus
+  - grafana
+  - ci/cd
+  - github actions
+  - mlops
+  - pandas
+  - numpy
+  - data analysis
+  - statistics
+  - feature engineering
+  - duckdb
+  - power bi
+  - tableau
+  - data visualization
+
+# Queries sent to bdjobs (each is a separate search).
+search_keywords:
+  - data scientist
+  - machine learning
+  - data analyst
+  - ai engineer
+  - data engineer
+  - python developer
+
+# Preferred locations (a match adds a small bonus; not a hard filter).
+locations_preferred:
+  - dhaka
+  - chittagong
+  - chattogram
+  - remote
+
+links:
+  github: https://github.com/minhazda
+  linkedin: https://www.linkedin.com/in/mohammadminhaz/
+
+# One-line project highlights injected into tailored CVs.
+projects: |
+  Real-Time Demand Forecasting MLOps (LightGBM, FastAPI, Terraform, GCP Cloud Run, Prometheus) - cut MAE 40.8% vs baseline; live API. github.com/minhazda/synthetic-retail-mlops-pipeline
+  Card-Fraud Detection - imbalanced classification (LightGBM), ROC-AUC 0.90 / PR-AUC 0.49; live API. github.com/minhazda/fraud-detection-mlops
+  Real-data demand forecasting on UCI Online Retail II (1.07M tx, DuckDB) - +26.3% MAE over baseline. github.com/minhazda/real-retail-forecasting
+  Privacy-preserving RAG agent (LangGraph, ChromaDB, LLM-as-judge + Langfuse). github.com/minhazda/privacy-preserving-rag-agent
+
+# Base CV LaTeX is fetched from here for tailoring (falls back to a built-in template).
+base_cv_tex_url: https://raw.githubusercontent.com/minhazda/cv/main/CV_MinhazurRahman.tex

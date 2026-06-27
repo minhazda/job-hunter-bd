@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Job Hunter BD</title>
+<style>
+:root{--bg:#0b1220;--card:#1e293b;--muted:#94a3b8;--line:#334155;--accent:#38bdf8}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:linear-gradient(160deg,#0b1220,#0f172a);color:#e2e8f0;min-height:100vh}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 18px 64px}
+h1{font-size:1.5rem;margin:0 0 2px}.sub{color:var(--muted);font-size:.9rem;margin:0 0 18px}
+.bar{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:18px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+input,button,select{font-size:.9rem;border-radius:8px;border:1px solid var(--line);background:#0b1220;color:#e2e8f0;padding:8px 10px}
+input[type=text]{flex:1;min-width:240px}
+button{cursor:pointer;font-weight:600}.primary{background:var(--accent);color:#04263a;border:none}
+button:disabled{opacity:.6;cursor:wait}
+.muted{color:var(--muted);font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.row1{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.title{font-size:1.08rem;font-weight:600;margin:0}
+.company{color:var(--accent);font-size:.92rem;margin:2px 0 0}
+.score{font-size:1.6rem;font-weight:800;line-height:1;text-align:center;min-width:54px}
+.score small{display:block;font-size:.6rem;color:var(--muted);font-weight:500}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.badge{font-size:.7rem;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:#cbd5e1}
+.badge.over{background:#14532d;border-color:#166534;color:#bbf7d0}
+.badge.appx{background:#3b2f0b;border-color:#854d0e;color:#fde68a}
+.badge.soon{background:#7f1d1d;border-color:#991b1b;color:#fecaca}
+.meta{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:.84rem;margin:6px 0}
+.why{font-size:.86rem;margin:8px 0}
+.desc{font-size:.82rem;color:var(--muted);max-height:0;overflow:hidden;transition:max-height .3s}
+.desc.open{max-height:400px;margin-top:8px}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.acts button,.acts a{font-size:.82rem;text-decoration:none}
+a.btn{display:inline-block;background:var(--accent);color:#04263a;padding:8px 12px;border-radius:8px;font-weight:600}
+.ghost{background:transparent}
+.del{border-color:#7f1d1d;color:#fca5a5;background:transparent}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px;z-index:9}
+.modal.open{display:flex}
+.sheet{background:var(--card);border:1px solid var(--line);border-radius:12px;max-width:780px;width:100%;max-height:88vh;overflow:auto;padding:18px}
+textarea{width:100%;height:340px;font-family:ui-monospace,monospace;font-size:.74rem;background:#0b1220;color:#e2e8f0;border:1px solid var(--line);border-radius:8px;padding:10px}
+.spin{color:var(--muted)}
+</style></head>
+<body><div class="wrap">
+<h1>Job Hunter <span style="color:var(--accent)">BD</span></h1>
+<p class="sub" id="sub">Loading profile…</p>
+
+<div class="bar">
+  <input type="text" id="kw" placeholder="keywords, comma separated">
+  <label class="muted">min score <input type="number" id="min" value="0" min="0" max="100" style="width:64px"></label>
+  <label class="muted"><input type="checkbox" id="hideApplied"> hide applied</label>
+  <button class="primary" id="scrapeBtn" onclick="scrape()">Scrape bdjobs</button>
+  <button class="ghost" onclick="load()">Refresh</button>
+  <span class="muted" id="status"></span>
+</div>
+
+<div id="list"></div>
+
+<div class="modal" id="modal"><div class="sheet">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <b id="mtitle">Tailored CV (LaTeX)</b>
+    <button class="ghost" onclick="closeModal()">✕ close</button>
+  </div>
+  <p class="muted" id="mmode"></p>
+  <textarea id="tex" spellcheck="false"></textarea>
+  <div class="acts" style="margin-top:10px">
+    <button class="primary" onclick="copyTex()">Copy LaTeX</button>
+    <button class="ghost" onclick="downloadTex()">Download .tex</button>
+    <button class="ghost" onclick="openOverleaf()">Open in Overleaf ↗</button>
+  </div>
+  <p class="muted" style="margin-top:8px">Paste into a blank Overleaf project (or click Open in Overleaf), compiler: pdfLaTeX.</p>
+</div></div>
+
+<script>
+let LLM=false;
+async function boot(){
+  const p=await (await fetch('/api/profile')).json();
+  LLM=p.llm_enabled;
+  document.getElementById('sub').textContent=`${p.name} — ${p.title}. Smart CV tailoring: ${LLM?'ON (LLM)':'template mode (set ANTHROPIC_API_KEY for LLM)'}.`;
+  document.getElementById('kw').value=(p.keywords||[]).join(', ');
+  load();
+}
+function daysLeft(iso){ if(!iso) return null; const d=Math.ceil((new Date(iso)-new Date())/864e5); return d; }
+function scoreColor(s){ return s>=70?'#22c55e':s>=45?'#f59e0b':'#94a3b8'; }
+function esc(s){ return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+async function load(){
+  const min=document.getElementById('min').value||0;
+  const hide=document.getElementById('hideApplied').checked;
+  const jobs=await (await fetch(`/api/jobs?min_score=${min}&include_applied=${!hide}`)).json();
+  document.getElementById('status').textContent=`${jobs.length} jobs`;
+  const list=document.getElementById('list');
+  if(!jobs.length){ list.innerHTML='<p class="muted">No jobs yet. Click “Scrape bdjobs”.</p>'; return; }
+  list.innerHTML=jobs.map(card).join('');
+}
+
+function card(j){
+  const dl=daysLeft(j.deadline_db);
+  const soon = dl!==null && dl<=5 && dl>=0;
+  const dlTxt = j.deadline + (dl!==null? ` (${dl<0?'expired':dl+' days left'})`:'');
+  return `<div class="card" id="job-${j.id}">
+    <div class="row1">
+      <div>
+        <p class="title">${esc(j.title)}</p>
+        <p class="company">${esc(j.company)}</p>
+      </div>
+      <div class="score" style="color:${scoreColor(j.score)}">${j.score}<small>MATCH</small></div>
+    </div>
+    <div class="badges">
+      <span class="badge">${esc(j.source||'source')}</span>
+      ${j.overqualified?'<span class="badge over">Overqualified — fast win</span>':''}
+      ${j.salary_approx?'<span class="badge appx">salary est.</span>':''}
+      ${soon?'<span class="badge soon">deadline soon</span>':''}
+    </div>
+    <div class="meta">
+      <span>📍 ${esc(j.location)||'—'}</span>
+      <span>🗓 ${esc(dlTxt)||'—'}</span>
+      <span>💰 ${esc(j.salary)||'—'}</span>
+      <span>🧪 ${esc(j.experience)||'—'}</span>
+    </div>
+    <div class="why">${esc(j.why)}</div>
+    <div class="desc" id="desc-${j.id}">${esc(j.description)||'No description.'}</div>
+    <div class="acts">
+      <a class="btn" href="${j.url}" target="_blank" rel="noopener" onclick="markApplied('${j.id}')">Apply ↗</a>
+      <button class="ghost" onclick="tailor('${j.id}')">Generate tailored CV</button>
+      <button class="ghost" onclick="document.getElementById('desc-${j.id}').classList.toggle('open')">Show JD</button>
+      <button class="del" onclick="del('${j.id}')">Delete</button>
+    </div>
+  </div>`;
+}
+
+async function scrape(){
+  const btn=document.getElementById('scrapeBtn'); btn.disabled=true; const old=btn.textContent; btn.textContent='Scraping…';
+  document.getElementById('status').textContent='scraping bdjobs…';
+  try{
+    const kws=document.getElementById('kw').value.split(',').map(s=>s.trim()).filter(Boolean);
+    const r=await (await fetch('/api/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keywords:kws})})).json();
+    document.getElementById('status').textContent=`scraped ${r.scraped} jobs`;
+    load();
+  }catch(e){ document.getElementById('status').textContent='scrape failed: '+e.message; }
+  finally{ btn.disabled=false; btn.textContent=old; }
+}
+
+async function del(id){ await fetch('/api/jobs/'+id,{method:'DELETE'}); const el=document.getElementById('job-'+id); if(el) el.remove(); }
+async function markApplied(id){ try{ await fetch('/api/jobs/'+id+'/applied',{method:'POST'}); }catch(e){} }
+
+let curTex='', curTitle='';
+async function tailor(id){
+  openModal(); document.getElementById('mmode').innerHTML='<span class="spin">Generating'+(LLM?' with LLM':'')+'… (first LLM call ~10s)</span>';
+  document.getElementById('tex').value='';
+  try{
+    const r=await (await fetch('/api/jobs/'+id+'/tailor',{method:'POST'})).json();
+    curTex=r.latex||''; curTitle='CV_'+id;
+    document.getElementById('tex').value=curTex;
+    document.getElementById('mmode').textContent='Mode: '+(r.mode||'template');
+  }catch(e){ document.getElementById('mmode').textContent='Failed: '+e.message; }
+}
+function openModal(){ document.getElementById('modal').classList.add('open'); }
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+function copyTex(){ navigator.clipboard.writeText(document.getElementById('tex').value); }
+function downloadTex(){ const b=new Blob([document.getElementById('tex').value],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=(curTitle||'tailored_cv')+'.tex'; a.click(); }
+function openOverleaf(){
+  const f=document.createElement('form'); f.method='POST'; f.action='https://www.overleaf.com/docs'; f.target='_blank';
+  const i=document.createElement('textarea'); i.name='snip'; i.value=document.getElementById('tex').value; f.appendChild(i);
+  document.body.appendChild(f); f.submit(); f.remove();
+}
+document.getElementById('modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
+boot();
+</script></body></html>
