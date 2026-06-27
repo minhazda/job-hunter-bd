@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from . import cv_tailor, db, scraper
-from .config import ANTHROPIC_API_KEY, PROFILE
+from .config import ANTHROPIC_API_KEY, GEMINI_API_KEY, PROFILE
 
 app = FastAPI(title="Job Hunter BD")
 db.init()
@@ -32,7 +32,8 @@ def profile() -> dict:
         "title": PROFILE.get("title"),
         "keywords": PROFILE.get("search_keywords", []),
         "sources": scraper.SOURCES,
-        "llm_enabled": bool(ANTHROPIC_API_KEY),
+        "llm_enabled": bool(ANTHROPIC_API_KEY or GEMINI_API_KEY),
+        "provider": "gemini" if GEMINI_API_KEY else "claude" if ANTHROPIC_API_KEY else "template",
     }
 
 

@@ -18,4 +18,6 @@ def load_profile() -> dict:
 PROFILE = load_profile()
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 TAILOR_MODEL = os.environ.get("RAG_TAILOR_MODEL", "claude-sonnet-4-6").strip()
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash").strip()
 DB_PATH = ROOT / "data" / "jobs.db"

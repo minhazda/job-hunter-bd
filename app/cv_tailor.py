@@ -5,7 +5,7 @@ import json
 
 import httpx
 
-from .config import ANTHROPIC_API_KEY, PROFILE, TAILOR_MODEL
+from .config import ANTHROPIC_API_KEY, GEMINI_API_KEY, GEMINI_MODEL, PROFILE, TAILOR_MODEL
 
 _FALLBACK_TEX = r"""\documentclass[11pt,a4paper]{article}
 \usepackage[margin=2cm]{geometry}\usepackage{hyperref}\usepackage{enumitem}
@@ -28,6 +28,13 @@ MSc Data Science (Greenwich), 3+ years industry data/IT experience. Production M
 \end{document}
 """
 
+_SYSTEM = (
+    "You tailor a candidate's LaTeX CV to one specific job. Return ONLY compilable LaTeX "
+    "(no commentary, no markdown fences). Rules: keep every real fact, link, and metric; "
+    "reorder and reword the Summary and Selected Projects to foreground what the job asks for; "
+    "keep it to at most two pages; do not invent experience."
+)
+
 
 @functools.lru_cache(maxsize=1)
 def base_tex() -> str:
@@ -42,37 +49,59 @@ def base_tex() -> str:
     return _FALLBACK_TEX
 
 
+def _prompt(jd: str) -> str:
+    return f"BASE CV (LaTeX):\n{base_tex()}\n\nJOB:\n{jd}\n\nReturn the tailored LaTeX only."
+
+
 def tailor(job: dict) -> dict:
     jd = (
         f"Title: {job.get('title')}\nCompany: {job.get('company')}\n"
         f"Location: {job.get('location')}\nExperience: {job.get('experience')}\n"
         f"Description:\n{job.get('description')}"
     )
+    if GEMINI_API_KEY:
+        try:
+            return {"latex": _gemini_tailor(jd), "mode": f"gemini ({GEMINI_MODEL})"}
+        except Exception as exc:  # noqa: BLE001
+            return {"latex": _template_tailor(job), "mode": f"template (Gemini failed: {exc})"}
     if ANTHROPIC_API_KEY:
         try:
-            return {"latex": _llm_tailor(jd), "mode": "llm"}
-        except Exception as exc:  # noqa: BLE001 - fall back gracefully
-            return {"latex": _template_tailor(job), "mode": f"template (LLM failed: {exc})"}
+            return {"latex": _claude_tailor(jd), "mode": "claude"}
+        except Exception as exc:  # noqa: BLE001
+            return {"latex": _template_tailor(job), "mode": f"template (Claude failed: {exc})"}
     return {"latex": _template_tailor(job), "mode": "template"}
 
 
-def _llm_tailor(jd: str) -> str:
+def _gemini_tailor(jd: str) -> str:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+    body = {
+        "system_instruction": {"parts": [{"text": _SYSTEM}]},
+        "contents": [{"parts": [{"text": _prompt(jd)}]}],
+        "generationConfig": {"maxOutputTokens": 8192, "temperature": 0.3},
+    }
+    r = httpx.post(url, params={"key": GEMINI_API_KEY}, json=body, timeout=90)
+    r.raise_for_status()
+    data = r.json()
+    parts = data["candidates"][0]["content"]["parts"]
+    txt = "".join(p.get("text", "") for p in parts).strip()
+    return _strip_fence(txt)
+
+
+def _claude_tailor(jd: str) -> str:
     from anthropic import Anthropic
 
     client = Anthropic(api_key=ANTHROPIC_API_KEY)
-    system = (
-        "You tailor a candidate's LaTeX CV to one specific job. Return ONLY compilable LaTeX "
-        "(no commentary, no markdown fences). Rules: keep every real fact, link, and metric; "
-        "reorder and reword the Summary and Selected Projects to foreground what the job asks for; "
-        "keep it to at most two pages; do not invent experience."
-    )
     msg = client.messages.create(
         model=TAILOR_MODEL,
         max_tokens=4000,
-        system=system,
-        messages=[{"role": "user", "content": f"BASE CV (LaTeX):\n{base_tex()}\n\nJOB:\n{jd}\n\nReturn the tailored LaTeX only."}],
+        system=_SYSTEM,
+        messages=[{"role": "user", "content": _prompt(jd)}],
     )
     txt = "".join(getattr(b, "text", "") for b in msg.content if getattr(b, "type", "") == "text").strip()
+    return _strip_fence(txt)
+
+
+def _strip_fence(txt: str) -> str:
     if txt.startswith("```"):
         txt = txt.strip("`")
         if txt.lower().startswith("latex"):
