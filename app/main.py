@@ -18,6 +18,7 @@ class ScrapeReq(BaseModel):
     keywords: list[str] | None = None
     sources: list[str] | None = None
     rpp: int = 40
+    enrich: bool = True
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -45,7 +46,7 @@ def jobs(min_score: int = 0, include_applied: bool = True) -> list[dict]:
 @app.post("/api/scrape")
 def scrape_jobs(req: ScrapeReq) -> dict:
     kws = req.keywords or PROFILE.get("search_keywords", [])
-    found, errors = scraper.scrape_all(kws, PROFILE, rpp=req.rpp, sources=req.sources)
+    found, errors = scraper.scrape_all(kws, PROFILE, rpp=req.rpp, sources=req.sources, enrich=req.enrich)
     for j in found:
         db.upsert_job(j)
     return {

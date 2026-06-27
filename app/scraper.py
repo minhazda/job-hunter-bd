@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import re
+import time
 from dataclasses import dataclass
 
 import httpx
@@ -113,6 +114,21 @@ def linkedin_fetch(keyword: str, location: str = "Bangladesh", pages: int = 2) -
     return out
 
 
+def linkedin_detail(extid: str) -> str:
+    """Fetch the full JD text for one LinkedIn job (guest endpoint)."""
+    try:
+        with httpx.Client(timeout=25, headers={"User-Agent": UA}, follow_redirects=True) as cl:
+            r = cl.get(f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{extid}")
+            if r.status_code != 200:
+                return ""
+            soup = BeautifulSoup(r.text, "html.parser")
+            node = soup.select_one(".show-more-less-html__markup") or soup.select_one(".description__text")
+            text = node.get_text(" ", strip=True) if node else soup.get_text(" ", strip=True)
+            return re.sub(r"\s+", " ", text)[:4000]
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 # --------------------------------------------------------------------------- #
 # Normalisation + aggregation
 # --------------------------------------------------------------------------- #
@@ -150,22 +166,39 @@ def scrape_all(
     rpp: int = 40,
     sources: list[str] | None = None,
     location: str = "Bangladesh",
+    enrich: bool = True,
+    enrich_cap: int = 120,
 ) -> tuple[list[dict], list[str]]:
     profile = profile or PROFILE
     sources = sources or SOURCES
-    seen: dict[str, dict] = {}
+    raws: dict[str, RawJob] = {}
     errors: list[str] = []
     for kw in keywords:
         if "bdjobs" in sources:
             try:
                 for r in bdjobs_fetch(kw, rpp=rpp):
-                    seen[f"{r.source}:{r.ext_id}"] = _build(r, profile)
+                    raws.setdefault(f"{r.source}:{r.ext_id}", r)
             except Exception as exc:  # noqa: BLE001
                 errors.append(f"bdjobs/{kw}: {exc}")
         if "linkedin" in sources:
             try:
                 for r in linkedin_fetch(kw, location=location):
-                    seen[f"{r.source}:{r.ext_id}"] = _build(r, profile)
+                    raws.setdefault(f"{r.source}:{r.ext_id}", r)
             except Exception as exc:  # noqa: BLE001
                 errors.append(f"linkedin/{kw}: {exc}")
-    return list(seen.values()), errors
+
+    # Enrich thin listings with their full JD so scoring sees real requirements.
+    if enrich:
+        done = 0
+        for r in raws.values():
+            if done >= enrich_cap:
+                break
+            if r.source == "linkedin" and len(r.description) < 200:
+                txt = linkedin_detail(r.ext_id)
+                if txt:
+                    r.description = txt
+                    done += 1
+                    time.sleep(0.25)
+
+    jobs = [_build(r, profile) for r in raws.values()]
+    return jobs, errors
