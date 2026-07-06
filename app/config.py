@@ -11,7 +11,12 @@ load_dotenv(ROOT / ".env")
 
 
 def load_profile() -> dict:
-    with open(ROOT / "profile.yaml", encoding="utf-8") as f:
+    # Prefer the user's own profile.yaml; fall back to the shipped example so a
+    # fresh clone runs out of the box before you've personalised it.
+    path = ROOT / "profile.yaml"
+    if not path.exists():
+        path = ROOT / "profile.example.yaml"
+    with open(path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 

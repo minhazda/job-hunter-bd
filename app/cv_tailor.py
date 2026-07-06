@@ -11,19 +11,17 @@ _FALLBACK_TEX = r"""\documentclass[11pt,a4paper]{article}
 \usepackage[margin=2cm]{geometry}\usepackage{hyperref}\usepackage{enumitem}
 \setlength{\parindent}{0pt}\pagestyle{empty}
 \begin{document}
-{\Large\textbf{MD Minhazur Rahman}}\\
-Data Scientist / Machine Learning Engineer\\
-\href{mailto:minhazurrahman.ds@gmail.com}{minhazurrahman.ds@gmail.com} \textbar\
-\href{https://github.com/minhazda}{github.com/minhazda} \textbar\
-\href{https://www.linkedin.com/in/mohammadminhaz/}{linkedin.com/in/mohammadminhaz}
+{\Large\textbf{Your Name}}\\
+Your Professional Title\\
+\href{mailto:you@example.com}{you@example.com} \textbar\
+\href{https://github.com/your-username}{github.com/your-username} \textbar\
+\href{https://www.linkedin.com/in/your-handle/}{linkedin.com/in/your-handle}
 \section*{Summary}
-MSc Data Science (Greenwich), 3+ years industry data/IT experience. Production ML on GCP Cloud Run.
+One or two lines about you. Set \texttt{base\_cv\_tex\_url} in profile.yaml to use your real CV instead of this placeholder.
 \section*{Selected Projects}
 \begin{itemize}[leftmargin=1.2em]
-  \item Demand forecasting MLOps (LightGBM, FastAPI, Terraform, Cloud Run) -- MAE -40.8\%.
-  \item Card-fraud detection (imbalanced) -- ROC-AUC 0.90, PR-AUC 0.49.
-  \item Real-data forecasting (UCI Online Retail II, DuckDB) -- +26.3\% MAE.
-  \item Privacy-preserving RAG agent (LangGraph, LLM-as-judge).
+  \item Project one -- tech used, one-line result.
+  \item Project two -- tech used, one-line result.
 \end{itemize}
 \end{document}
 """

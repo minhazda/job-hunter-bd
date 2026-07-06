@@ -4,3 +4,6 @@ __pycache__/
 venv/
 .env
 data/*.db
+
+# Your personal profile stays local — the committed template is profile.example.yaml
+profile.yaml

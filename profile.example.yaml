@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# YOUR PROFILE — copy this file to `profile.yaml` and edit it.
+#
+#   cp profile.example.yaml profile.yaml      # macOS/Linux
+#   copy profile.example.yaml profile.yaml    # Windows
+#
+# Everything here drives match scoring, the "why apply" line, and CV tailoring.
+# Nothing here is sent anywhere except (optionally) to your own CV-tailoring LLM.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Your Name
+title: Data Analyst / Software Engineer      # your headline
+seniority_years: 2                            # years of experience (tunes scoring)
+
+# Roles you target — used for job-title matching and the overqualified flag.
+# Lowercase. Add/remove to fit your field.
+target_roles:
+  - data analyst
+  - data scientist
+  - software engineer
+  - python developer
+  - business analyst
+  - it officer
+
+# Skills/keywords used for match scoring (lowercase). The more accurate this is,
+# the better the ranking. List what you actually know.
+skills:
+  - python
+  - sql
+  - excel
+  - power bi
+  - pandas
+  - data analysis
+  - statistics
+  - machine learning
+  - javascript
+  - react
+  - git
+
+# Queries sent to each job source (each line is one separate search).
+search_keywords:
+  - data analyst
+  - python developer
+  - software engineer
+
+# Preferred locations — a match adds a small score bonus (not a hard filter).
+locations_preferred:
+  - dhaka
+  - chittagong
+  - chattogram
+  - remote
+
+links:
+  github: https://github.com/your-username
+  linkedin: https://www.linkedin.com/in/your-handle/
+
+# One-line project highlights injected into tailored CVs (optional).
+projects: |
+  Project One (tech used) — one-line impact/result. github.com/your-username/project-one
+  Project Two (tech used) — one-line impact/result. github.com/your-username/project-two
+
+# Base CV in LaTeX, fetched from a raw URL for tailoring. Leave blank to use the
+# built-in template. If you have a LaTeX CV on GitHub, paste its raw URL here.
+base_cv_tex_url:
