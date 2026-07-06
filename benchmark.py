@@ -26,6 +26,9 @@ def main() -> None:
 
     live = [r for r in rows if r["status"] != "deleted"]
     scores = [r["score"] for r in live if r["score"] is not None]
+    if not scores:
+        print("Store is empty — run a scrape first, then re-run benchmark.py.")
+        return
     by_source = Counter(r["source"] for r in live)
 
     def pct(n: int) -> str:
