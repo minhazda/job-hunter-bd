@@ -114,6 +114,30 @@ def linkedin_fetch(keyword: str, location: str = "Bangladesh", pages: int = 2) -
     return out
 
 
+def bdjobs_detail(jid: str) -> str:
+    """Fetch the full JD text for one bdjobs job (public detail API)."""
+    try:
+        with httpx.Client(timeout=25, headers={"User-Agent": UA, "Accept": "application/json"}) as cl:
+            r = cl.get(
+                "https://gateway.bdjobs.com/jobapply/api/JobSubsystem/Job-Details",
+                params={"JobId": jid, "JobSource": ""},
+            )
+            if r.status_code != 200:
+                return ""
+            rows = r.json().get("data") or []
+            if not rows:
+                return ""
+            d = rows[0]
+            html = " ".join(
+                d.get(k) or ""
+                for k in ("JobDescription", "SkillsRequired", "AdditionJobRequirements", "EducationRequirements")
+            )
+            text = BeautifulSoup(html, "html.parser").get_text(" ", strip=True)
+            return re.sub(r"\s+", " ", text)[:4000]
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def linkedin_detail(extid: str) -> str:
     """Fetch the full JD text for one LinkedIn job (guest endpoint)."""
     try:
@@ -193,8 +217,13 @@ def scrape_all(
         for r in raws.values():
             if done >= enrich_cap:
                 break
-            if r.source == "linkedin" and len(r.description) < 200:
-                txt = linkedin_detail(r.ext_id)
+            if len(r.description) < 200:
+                if r.source == "linkedin":
+                    txt = linkedin_detail(r.ext_id)
+                elif r.source == "bdjobs":
+                    txt = bdjobs_detail(r.ext_id)
+                else:
+                    txt = ""
                 if txt:
                     r.description = txt
                     done += 1

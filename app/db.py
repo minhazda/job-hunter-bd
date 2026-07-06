@@ -51,7 +51,8 @@ def upsert_job(j: dict) -> None:
             ON CONFLICT(id) DO UPDATE SET
               score=excluded.score, why=excluded.why, salary=excluded.salary,
               salary_approx=excluded.salary_approx, overqualified=excluded.overqualified,
-              matched=excluded.matched, deadline=excluded.deadline, deadline_db=excluded.deadline_db
+              matched=excluded.matched, deadline=excluded.deadline, deadline_db=excluded.deadline_db,
+              description=excluded.description
             WHERE jobs.status <> 'deleted'""",
             j,
         )
