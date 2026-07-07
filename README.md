@@ -4,7 +4,7 @@
 
 Made for job seekers in Bangladesh who are tired of refreshing bdjobs and LinkedIn by hand. Instead of opening ten tabs every morning and re-reading the same listings, you run it once and get a ranked, deduplicated, explained shortlist — plus an Overleaf-ready tailored CV for any job with one click.
 
-[![CI](https://github.com/minhazda/job-hunter-bd/actions/workflows/ci.yml/badge.svg)](https://github.com/minhazda/job-hunter-bd/actions/workflows/ci.yml) ![Python](https://img.shields.io/badge/python-3.11%E2%80%933.14-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Cost](https://img.shields.io/badge/core%20loop-%240-brightgreen)
+[![CI](https://github.com/minhazda/job-hunter-bd/actions/workflows/ci.yml/badge.svg)](https://github.com/minhazda/job-hunter-bd/actions/workflows/ci.yml) ![Python](https://img.shields.io/badge/python-3.11%E2%80%933.14-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Cost](https://img.shields.io/badge/core%20loop-%240-brightgreen) ![Tests](https://img.shields.io/badge/tests-9%20passing-brightgreen)
 
 > ⭐ If this helps your job hunt, please **star the repo** — it helps other job seekers find it.
 

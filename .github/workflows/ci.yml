@@ -19,3 +19,5 @@ jobs:
         run: |
           python -c "import app.main; print('app imports OK')"
           python benchmark.py
+      - name: Tests
+        run: pytest -q
