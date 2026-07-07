@@ -1,11 +1,17 @@
 from __future__ import annotations
 
-import functools
 import json
+import time
 
 import httpx
 
-from .config import ANTHROPIC_API_KEY, GEMINI_API_KEY, GEMINI_MODEL, PROFILE, TAILOR_MODEL
+from .config import (
+    ANTHROPIC_API_KEY,
+    GEMINI_API_KEY,
+    GEMINI_MODEL,
+    PROFILE,
+    TAILOR_MODEL,
+)
 
 _FALLBACK_TEX = r"""\documentclass[11pt,a4paper]{article}
 \usepackage[margin=2cm]{geometry}\usepackage{hyperref}\usepackage{enumitem}
@@ -34,17 +40,32 @@ _SYSTEM = (
 )
 
 
-@functools.lru_cache(maxsize=1)
-def base_tex() -> str:
-    url = PROFILE.get("base_cv_tex_url")
+# Short TTL cache (not lru_cache): a running server must pick up CV edits without a
+# restart, so tailoring always uses the *current* CV — not a copy fetched once at boot.
+_BASE_CACHE: dict[str, tuple[float, str]] = {}
+_BASE_TTL = 120.0  # seconds
+
+
+def base_tex(force: bool = False) -> str:
+    url = PROFILE.get("base_cv_tex_url") or ""
+    now = time.time()
+    cached = _BASE_CACHE.get(url)
+    if not force and cached and now - cached[0] < _BASE_TTL:
+        return cached[1]
+    text = _FALLBACK_TEX
     if url:
         try:
-            r = httpx.get(url, timeout=20)
+            # no-cache header trims GitHub raw's CDN staleness so recent CV pushes show up
+            r = httpx.get(url, timeout=20, headers={"Cache-Control": "no-cache"})
             if r.status_code == 200 and r.text.lstrip().startswith("\\documentclass"):
-                return r.text
+                text = r.text
         except Exception:  # noqa: BLE001
-            pass
-    return _FALLBACK_TEX
+            if (
+                cached
+            ):  # network hiccup — keep the last good copy rather than the fallback
+                return cached[1]
+    _BASE_CACHE[url] = (now, text)
+    return text
 
 
 def _prompt(jd: str) -> str:
@@ -61,12 +82,18 @@ def tailor(job: dict) -> dict:
         try:
             return {"latex": _gemini_tailor(jd), "mode": f"gemini ({GEMINI_MODEL})"}
         except Exception as exc:  # noqa: BLE001
-            return {"latex": _template_tailor(job), "mode": f"template (Gemini failed: {exc})"}
+            return {
+                "latex": _template_tailor(job),
+                "mode": f"template (Gemini failed: {exc})",
+            }
     if ANTHROPIC_API_KEY:
         try:
             return {"latex": _claude_tailor(jd), "mode": "claude"}
         except Exception as exc:  # noqa: BLE001
-            return {"latex": _template_tailor(job), "mode": f"template (Claude failed: {exc})"}
+            return {
+                "latex": _template_tailor(job),
+                "mode": f"template (Claude failed: {exc})",
+            }
     return {"latex": _template_tailor(job), "mode": "template"}
 
 
@@ -100,7 +127,9 @@ def _claude_tailor(jd: str) -> str:
         system=_SYSTEM,
         messages=[{"role": "user", "content": _prompt(jd)}],
     )
-    txt = "".join(getattr(b, "text", "") for b in msg.content if getattr(b, "type", "") == "text").strip()
+    txt = "".join(
+        getattr(b, "text", "") for b in msg.content if getattr(b, "type", "") == "text"
+    ).strip()
     return _strip_fence(txt)
 
 
